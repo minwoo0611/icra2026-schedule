@@ -3873,7 +3873,7 @@ h1 {{ margin:0 0 10px; font-size:38px; line-height:1.15; letter-spacing:0; overf
 .panel {{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; box-shadow:0 1px 2px rgba(16,24,40,.03); }}
 .controls {{ display:grid; grid-template-columns:1.1fr .8fr .7fr .7fr .8fr; gap:12px; align-items:end; margin:22px 0; }}
 .controls > div {{ min-width:0; }}
-.secondaryControls {{ grid-template-columns:1.1fr 1fr .6fr; margin:0; }}
+.secondaryControls {{ grid-template-columns:1.1fr .6fr; margin:0; }}
 label {{ display:block; font-size:12px; color:var(--muted); font-weight:700; margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }}
 input,select,button {{ width:100%; min-width:0; border:1px solid var(--line); border-radius:8px; padding:10px 11px; background:#fff; color:var(--fg); font-size:14px; }}
 select {{ text-overflow:ellipsis; }}
@@ -3960,11 +3960,11 @@ summary {{ cursor:pointer; color:var(--accent); font-weight:700; font-size:13px;
       </div>
       <div>
         <label for="start">Start</label>
-        <input id="start" type="time" value="09:00">
+        <input id="start" type="text" inputmode="numeric" pattern="[0-9]{{2}}:[0-9]{{2}}" placeholder="00:00" value="00:00">
       </div>
       <div>
         <label for="end">End</label>
-        <input id="end" type="time" value="17:30">
+        <input id="end" type="text" inputmode="numeric" pattern="[0-9]{{2}}:[0-9]{{2}}" placeholder="24:00" value="24:00">
       </div>
       <div>
         <label>&nbsp;</label>
@@ -3981,25 +3981,15 @@ summary {{ cursor:pointer; color:var(--accent); font-weight:700; font-size:13px;
         </select>
       </div>
       <div>
-        <label for="source">Source</label>
-        <select id="source"><option value="">All result types: technical papers + workshop timetable slots</option><option value="paper">Technical papers only</option><option value="workshop_slot">Workshop timetable slots only</option></select>
-      </div>
-      <div>
         <label>&nbsp;</label>
         <button class="secondary" id="resetBtn">Reset</button>
       </div>
     </div>
-    <div class="warn" id="coverage"></div>
   </section>
 
   <section class="layout" style="margin-top:18px;">
     <aside class="panel side">
       <div class="stat"><span>Matched total</span><b id="matchedTotal">0</b></div>
-      <div class="stat"><span>Technical papers</span><b id="matchedPapers">0</b></div>
-      <div class="stat"><span>Workshop slots</span><b id="matchedWorkshopSlots">0</b></div>
-      <div class="stat"><span>Unique time blocks</span><b id="matchedSlots">0</b></div>
-      <div class="gapTitle">Workshop crawl gaps</div>
-      <div id="gaps" class="smallList"></div>
     </aside>
     <section class="panel">
       <div class="resultsHead">
@@ -4084,18 +4074,12 @@ function render() {{
   const q = document.getElementById('q').value;
   const day = document.getElementById('day').value;
   const start = document.getElementById('start').value || '00:00';
-  const end = document.getElementById('end').value || '23:59';
+  const end = document.getElementById('end').value || '24:00';
   const mode = document.getElementById('mode').value;
-  const source = document.getElementById('source').value;
-  let rows = allItems.filter(item => (!day || item.day === day) && (!source || item.type === source) && overlaps(item, start, end) && matchesKeyword(item, q, mode));
+  let rows = allItems.filter(item => (!day || item.day === day) && overlaps(item, start, end) && matchesKeyword(item, q, mode));
   rows.sort(itemSort);
   const fullCount = rows.length;
-  const counts = rows.reduce((acc, x) => (acc[x.type] = (acc[x.type] || 0) + 1, acc), {{}});
-  const slotSet = new Set(rows.map(x => `${{x.day}} ${{x.start}}-${{x.end}}`));
   document.getElementById('matchedTotal').textContent = fullCount;
-  document.getElementById('matchedPapers').textContent = counts.paper || 0;
-  document.getElementById('matchedWorkshopSlots').textContent = counts.workshop_slot || 0;
-  document.getElementById('matchedSlots').textContent = slotSet.size;
   document.getElementById('resultNote').textContent = `${{fullCount}} shown`;
   const groups = new Map();
   for (const item of rows) {{
@@ -4175,34 +4159,24 @@ function slotItem(x, q, parent) {{
     ${{abstract}}
   </div>`;
 }}
-function renderGaps() {{
-  const failed = DATA.workshops.filter(w => w.crawlStatus !== 'ok');
-  const partial = DATA.workshops.filter(w => w.crawlStatus === 'ok' && !w.presentationCount);
-  document.getElementById('gaps').innerHTML = [
-    ...failed.map(w => `<div class="smallItem"><b>Failed:</b> <a href="${{escapeHtml(w.url)}}" target="_blank">${{escapeHtml(w.title)}}</a> · ${{escapeHtml(w.crawlStatus)}} ${{escapeHtml((w.crawlFailures||[]).join('; '))}}</div>`),
-    ...partial.slice(0, 30).map(w => `<div class="smallItem"><b>No internal papers extracted:</b> <a href="${{escapeHtml(w.url)}}" target="_blank">${{escapeHtml(w.title)}}</a></div>`)
-  ].join('') || '<div class="smallItem">No crawl gaps recorded.</div>';
+function clearResults() {{
+  document.getElementById('matchedTotal').textContent = '0';
+  document.getElementById('resultNote').textContent = '';
+  document.getElementById('results').innerHTML = '<div class="empty">Set filters and click Search.</div>';
 }}
 document.getElementById('paperCount').textContent = DATA.papers.length;
 document.getElementById('workshopCount').textContent = DATA.workshops.length;
 document.getElementById('slotCount').textContent = DATA.workshopSlots.length;
-document.getElementById('coverage').textContent = DATA.meta.coverageNote;
 document.getElementById('searchBtn').addEventListener('click', render);
 document.getElementById('resetBtn').addEventListener('click', () => {{
   document.getElementById('q').value = '';
   document.getElementById('day').value = '';
-  document.getElementById('start').value = '09:00';
-  document.getElementById('end').value = '17:30';
+  document.getElementById('start').value = '00:00';
+  document.getElementById('end').value = '24:00';
   document.getElementById('mode').value = 'all';
-  document.getElementById('source').value = '';
-  render();
+  clearResults();
 }});
-['q','day','start','end','mode','source'].forEach(id => {{
-  document.getElementById(id).addEventListener('input', render);
-  document.getElementById(id).addEventListener('change', render);
-}});
-renderGaps();
-render();
+clearResults();
 </script>
 </body>
 </html>
