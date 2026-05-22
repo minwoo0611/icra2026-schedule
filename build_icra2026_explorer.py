@@ -36,6 +36,13 @@ EXPLORER_DIR = TMP / "icra2026-explorer"
 PAPERCEPT_BASE = "https://ras.papercept.net/conferences/conferences/ICRA26/program/"
 WORKSHOPS_URL = "https://2026.ieee-icra.org/workshops-and-tutorials/"
 RASEVENTS_URL = "https://rasevents.org/event?id=167&actionMenu=sessions"
+PROGRAM_AT_A_GLANCE_URL = "https://2026.ieee-icra.org/program-at-a-glance/"
+KEYNOTE_SESSIONS_URL = "https://2026.ieee-icra.org/program/keynote-sessions/"
+PLENARY_SESSIONS_URL = "https://2026.ieee-icra.org/attend/plenary-sessions/"
+KEYNOTE_TUTORIALS_URL = "https://2026.ieee-icra.org/attend/keynote-tutorials/"
+PANEL_SESSIONS_URL = "https://2026.ieee-icra.org/program/panels/"
+INDUSTRY_KEYNOTES_URL = "https://2026.ieee-icra.org/program/industry-keynotes/"
+RAS_EVENTS_URL = "https://2026.ieee-icra.org/ras-events/"
 
 DAY_TO_PAGE = {
     "Sunday": "ICRA26_ContentListWeb_1.html",
@@ -3846,6 +3853,584 @@ def make_embedded_workshops(workshops: list[dict]) -> list[dict]:
     return rows
 
 
+def conference_session(
+    *,
+    id: str,
+    kind: str,
+    title: str,
+    day: str,
+    start: str,
+    end: str,
+    room: str,
+    url: str,
+    items: list[dict] | None = None,
+    context: str = "",
+) -> dict:
+    nested = []
+    for item in items or []:
+        nested.append(
+            {
+                "kind": item.get("kind", kind),
+                "title": item.get("title", ""),
+                "speaker": item.get("speaker", ""),
+                "context": item.get("context", ""),
+                "abstract": item.get("abstract", ""),
+                "url": item.get("url") or url,
+                "paperId": item.get("paperId", ""),
+            }
+        )
+    search_text = normalize_text(
+        " ".join(
+            [
+                title,
+                kind,
+                context,
+                day,
+                room,
+                " ".join(
+                    " ".join(
+                        [
+                            item.get("title", ""),
+                            item.get("speaker", ""),
+                            item.get("context", ""),
+                            item.get("abstract", ""),
+                        ]
+                    )
+                    for item in nested
+                ),
+            ]
+        )
+    ).lower()
+    return {
+        "type": "conference_session",
+        "source": "Official ICRA 2026 program pages",
+        "id": id,
+        "kind": kind,
+        "day": day,
+        "start": start,
+        "end": end,
+        "time": f"{start}-{end}",
+        "room": room,
+        "title": title,
+        "context": context,
+        "slotItemCount": len(nested) or 1,
+        "items": nested,
+        "url": url,
+        "searchText": search_text,
+        "displayText": normalize_text(" ".join([title, kind, context, room])).lower(),
+    }
+
+
+def talk(title: str, speaker: str = "", context: str = "", kind: str = "talk") -> dict:
+    return {"kind": kind, "title": title, "speaker": speaker, "context": context}
+
+
+def make_conference_sessions() -> list[dict]:
+    """Curated non-paper main-conference sessions from official ICRA pages.
+
+    The official WordPress pages currently block local requests in some environments,
+    so these rows are kept as explicit metadata while technical papers and workshop
+    pages remain crawler-driven.
+    """
+
+    sessions = [
+        conference_session(
+            id="keynote-1",
+            kind="keynote",
+            title="Keynote 1: Autonomous Vehicles & Navigation",
+            day="Tuesday",
+            start="11:00",
+            end="12:30",
+            room="Hall A1 (Plenary)",
+            url=KEYNOTE_SESSIONS_URL,
+            context="Main keynote session",
+            items=[
+                talk(
+                    "Learning to Handle Autonomous Vehicles at the Limits - Lessons Learned from Real-World Autonomous Motorsport",
+                    "Johannes Betz, Technical University of Munich",
+                    "Autonomous racing, learning-based motion planning, control, uncertainty",
+                ),
+                talk(
+                    "From Neuroscience to Autonomous Vehicle Navigation",
+                    "Michael Milford, QUT Centre for Robotics",
+                    "Navigation, localization, autonomous vehicles, field deployment",
+                ),
+                talk(
+                    "Toward Behaviorally-Intelligent Robots: Safe Navigation in Unstructured and Human-Centered Environments",
+                    "Aniket Bera, Purdue University",
+                    "Safe navigation, semantic scene understanding, world modeling, human behavior prediction",
+                ),
+                talk(
+                    "Learning to Navigate: From Scene Understanding to Decision Making",
+                    "Hesheng Wang, Shanghai Jiao Tong University",
+                    "Scene understanding, dynamic environments, decision making",
+                ),
+            ],
+        ),
+        conference_session(
+            id="keynote-2",
+            kind="keynote",
+            title="Keynote 2: Medical & Healthcare Robotics",
+            day="Tuesday",
+            start="16:45",
+            end="18:15",
+            room="Hall A1 (Plenary)",
+            url=KEYNOTE_SESSIONS_URL,
+            context="Main keynote session",
+            items=[
+                talk("Using Magnetic Fields to Control Tiny Robots in the Gut and Brain", "Eric Diller, University of Toronto"),
+                talk(
+                    "From Bioinspired Design to Safe Control: Emerging Challenges in Medical Robotics",
+                    "Fanny Ficuciello, University of Naples Federico II",
+                ),
+                talk("Magnetically Actuated Microrobots for Precision Medicine", "Tiantian Xu, SIAT"),
+                talk(
+                    "Towards Wearable Robotics with better Portability, Safety, and Comfort",
+                    "Haoyong Yu, National University of Singapore",
+                ),
+            ],
+        ),
+        conference_session(
+            id="keynote-3",
+            kind="keynote",
+            title="Keynote 3: Robot Perception & Spatial AI",
+            day="Wednesday",
+            start="11:00",
+            end="12:30",
+            room="Hall A1 (Plenary)",
+            url=KEYNOTE_SESSIONS_URL,
+            context="Main keynote session",
+            items=[
+                talk(
+                    "The Underdog Sensors: Are Robots Using Thermal and Radar Right?",
+                    "Ayoung Kim, Seoul National University",
+                    "Perceptual robotics, SLAM, state estimation, spatial representation learning, LiDAR, radar, thermal infrared, vision",
+                ),
+                talk(
+                    "Maps, Memory, and Tasks: Toward Spatial AI for the Next Generation of Robots",
+                    "Luca Carlone, Massachusetts Institute of Technology",
+                    "Spatial AI, maps, memory, tasks, 3D reconstruction, geometric foundation models, SLAM",
+                ),
+                talk(
+                    "Advancing Service Robots Through Active Perception: Mapping and Object Search Under Occlusion",
+                    "Maren Bennewitz, University of Bonn",
+                    "Active perception, 3D mapping, object search, occlusion",
+                ),
+                talk(
+                    "Why Field Robotics Research Still Matters",
+                    "Timothy Barfoot, University of Toronto",
+                    "Field robotics, state estimation, SLAM, mining, planetary rovers, autonomy",
+                ),
+            ],
+        ),
+        conference_session(
+            id="keynote-4",
+            kind="keynote",
+            title="Keynote 4: Manipulation, Humanoids, Embodied Design",
+            day="Wednesday",
+            start="16:45",
+            end="18:15",
+            room="Hall A1 (Plenary)",
+            url=KEYNOTE_SESSIONS_URL,
+            context="Main keynote session",
+            items=[
+                talk("Do We Still Need Dexterous Hands?", "Jeannette Bohg, Stanford University"),
+                talk(
+                    "At the Intersection of Biology and Machines: From Musculoskeletal to Wire-driven Robots",
+                    "Kento Kawaharazuka, The University of Tokyo",
+                ),
+                talk(
+                    "Modular Bodies and Recovery Capabilities: Building Robots for Unstructured Environments",
+                    "Nikos Tsagarakis, Istituto Italiano di Tecnologia",
+                ),
+                talk("Building Generalist Humanoid Robots", "Yuke Zhu, UT Austin"),
+            ],
+        ),
+        conference_session(
+            id="keynote-5",
+            kind="keynote",
+            title="Keynote 5: Robot Learning, Planning & Foundation Models",
+            day="Thursday",
+            start="11:00",
+            end="12:30",
+            room="Hall A1 (Plenary)",
+            url=KEYNOTE_SESSIONS_URL,
+            context="Main keynote session",
+            items=[
+                talk(
+                    "Scalable Robot Decision Making in the Open World: Planning and Plan Prediction with LLMs",
+                    "David Hsu, National University of Singapore",
+                ),
+                talk(
+                    "Towards Complex Language in Partially Observed Environments",
+                    "Stefanie Tellex, Brown University",
+                    "Language, partially observed environments, POMDP, object search",
+                ),
+                talk(
+                    "Traveling the Robot Learning Manifold: A Tale of Geometries and Inductive Biases",
+                    "Noemie Jaquier, KTH Royal Institute of Technology",
+                    "Geometric robot learning, differential geometry, inductive biases",
+                ),
+                talk(
+                    "Intrinsic Robustness: A Journey from Control-Aware Planning to Robust Robot Learning",
+                    "Paolo Robuffo Giordano, IRISA Rennes",
+                    "Robust planning, uncertainty propagation, robot learning, MPC",
+                ),
+            ],
+        ),
+        conference_session(
+            id="keynote-6",
+            kind="keynote",
+            title="Keynote 6: Human-Robot Interaction",
+            day="Thursday",
+            start="16:45",
+            end="18:15",
+            room="Hall A1 (Plenary)",
+            url=KEYNOTE_SESSIONS_URL,
+            context="Main keynote session",
+            items=[
+                talk(
+                    "Challenges in Adaptive Robot Teaming: Understanding Human Teammate Performance",
+                    "Julie A. Adams, Oregon State University",
+                ),
+                talk(
+                    "Guiding with Touch: Wearable Haptics for Shaping Human-Robot Interaction",
+                    "Marcia O'Malley, Rice University",
+                ),
+                talk(
+                    "Engineering Human Agency and Self-Efficacy: The Next Frontier of Human-Robot Symbiosis",
+                    "Tetsunari Inamura, Tamagawa University",
+                ),
+                talk(
+                    "Overcoming Manipulation Challenges in Environmental Robotics through AI-based Solutions and Human-Robot Partnership",
+                    "Berk Calli, Worcester Polytechnic Institute",
+                ),
+            ],
+        ),
+        conference_session(
+            id="plenary-1",
+            kind="plenary",
+            title='Can GOFE and Code-as-Policy Close the 100,000-Year "Data Gap" in Robot Manipulation?',
+            day="Tuesday",
+            start="14:00",
+            end="14:50",
+            room="Hall A1 (Plenary)",
+            url=PLENARY_SESSIONS_URL,
+            context="Plenary session",
+            items=[talk('Can GOFE and Code-as-Policy Close the 100,000-Year "Data Gap" in Robot Manipulation?', "Ken Goldberg, UC Berkeley and Ambi Robotics")],
+        ),
+        conference_session(
+            id="plenary-2",
+            kind="plenary",
+            title="Natural Revolution: Biological Principles for Frugal and Sustainable Robotics",
+            day="Wednesday",
+            start="14:00",
+            end="14:50",
+            room="Hall A1 (Plenary)",
+            url=PLENARY_SESSIONS_URL,
+            context="Plenary session",
+            items=[talk("Natural Revolution: Biological Principles for Frugal and Sustainable Robotics", "Barbara Mazzolai, Istituto Italiano di Tecnologia")],
+        ),
+        conference_session(
+            id="plenary-3",
+            kind="plenary",
+            title="Aerial Robots - From Omnidirectional Flight to Physical Interaction at Height",
+            day="Thursday",
+            start="14:00",
+            end="14:50",
+            room="Hall A1 (Plenary)",
+            url=PLENARY_SESSIONS_URL,
+            context="Plenary session",
+            items=[talk("Aerial Robots - From Omnidirectional Flight to Physical Interaction at Height", "Roland Siegwart, ETH Zurich")],
+        ),
+        conference_session(
+            id="keynote-tutorial-1",
+            kind="keynote_tutorial",
+            title="Learning Agile Vision-based Quadrotor Flight: from Simulation to Real-world Adaption",
+            day="Tuesday",
+            start="09:00",
+            end="10:30",
+            room="Strauss 1-2",
+            url=KEYNOTE_TUTORIALS_URL,
+            context="Keynote tutorial",
+            items=[
+                talk(
+                    "Learning Agile Vision-based Quadrotor Flight: from Simulation to Real-world Adaption",
+                    "Davide Scaramuzza, Rudolf Reiter, Ismail Geles",
+                    "Simulation-to-real adaptation, vision-based flight, state estimation, differentiable simulation, reinforcement learning",
+                    kind="tutorial",
+                )
+            ],
+        ),
+        conference_session(
+            id="keynote-tutorial-2",
+            kind="keynote_tutorial",
+            title="The Open Motion Planning Library (OMPL 2.0)",
+            day="Tuesday",
+            start="15:00",
+            end="16:30",
+            room="Strauss 1-2",
+            url=KEYNOTE_TUTORIALS_URL,
+            context="Keynote tutorial",
+            items=[
+                talk(
+                    "The Open Motion Planning Library (OMPL 2.0)",
+                    "Lydia Kavraki, Thai Duong, Theodoros Tyrovouzis, Clayton Ramsey, Nikki Hart, Arden Knoll",
+                    "Sampling-based motion planning, OMPL, task and motion planning",
+                    kind="tutorial",
+                )
+            ],
+        ),
+        conference_session(
+            id="keynote-tutorial-3",
+            kind="keynote_tutorial",
+            title="Building, Running and Deploying Modern Software Tools for Robotics",
+            day="Wednesday",
+            start="15:00",
+            end="16:30",
+            room="Strauss 1-2",
+            url=KEYNOTE_TUTORIALS_URL,
+            context="Keynote tutorial",
+            items=[
+                talk(
+                    "Building, Running and Deploying Modern Software Tools for Robotics",
+                    "Peter Corke, Tobias Fischer",
+                    "Robotics software, reproducibility, Python toolboxes, ROS, SLAM",
+                    kind="tutorial",
+                )
+            ],
+        ),
+        conference_session(
+            id="keynote-tutorial-4",
+            kind="keynote_tutorial",
+            title="Behavior Foundation Models from the Ground Up: A Hands-On Tutorial",
+            day="Thursday",
+            start="15:00",
+            end="16:30",
+            room="Strauss 1-2",
+            url=KEYNOTE_TUTORIALS_URL,
+            context="Keynote tutorial",
+            items=[
+                talk(
+                    "Behavior Foundation Models from the Ground Up: A Hands-On Tutorial",
+                    "Rudolf Lioutikov",
+                    "Behavior foundation models, vision-language-action models, robot learning",
+                    kind="tutorial",
+                )
+            ],
+        ),
+        conference_session(
+            id="panel-1",
+            kind="panel",
+            title="Panel 1: From Humanoid Robotics Research to Startup Creation: The Role of Public Funding",
+            day="Tuesday",
+            start="09:00",
+            end="10:30",
+            room="Hall A1",
+            url=PANEL_SESSIONS_URL,
+            context="Panel session",
+        ),
+        conference_session(
+            id="panel-2",
+            kind="panel",
+            title="Panel 2: Advancing Sustainability in Robotics: From Green Design to Real-World Impact",
+            day="Tuesday",
+            start="15:00",
+            end="16:30",
+            room="Hall A1",
+            url="https://2026.ieee-icra.org/event/panel-2-advancing-sustainability-in-robotics-from-green-design-to-real-world-impact/",
+            context="Panel session; moderators/speakers include Bram Vanderborght, Aude Billard, Barbara Mazzolai, Ludovic Righetti, Cecilia Laschi, Mirko Kovac",
+        ),
+        conference_session(
+            id="panel-3",
+            kind="panel",
+            title="Panel 3: Building Sustainable and Trustworthy AI for Automation",
+            day="Wednesday",
+            start="09:00",
+            end="10:30",
+            room="Hall A1",
+            url=PANEL_SESSIONS_URL,
+            context="Panel session",
+        ),
+        conference_session(
+            id="panel-4",
+            kind="panel",
+            title="Panel 4: Publish or Perish: Surviving the Paper Deluge - Is AI the solution? If not, what is the Solution?",
+            day="Wednesday",
+            start="15:00",
+            end="16:30",
+            room="Hall A1",
+            url="https://2026.ieee-icra.org/event/panel-4/",
+            context="Panel session; moderator Aude Billard; speakers include Renaud Detry, Greg Dudek, Nadia Figueroa, Dongheui Lee, Shigeki Sugano, Kunpeng Yao",
+        ),
+        conference_session(
+            id="panel-5",
+            kind="panel",
+            title='Panel 5: "Robots for All" in a Fragmented World: Competing Global Visions and Shared Futures from Europe, Asia, and the United States',
+            day="Thursday",
+            start="09:00",
+            end="10:30",
+            room="Hall A1",
+            url=PANEL_SESSIONS_URL,
+            context="Panel session",
+        ),
+        conference_session(
+            id="panel-6",
+            kind="panel",
+            title="Panel 6: Return on Humanoid Investment",
+            day="Thursday",
+            start="15:00",
+            end="16:30",
+            room="Hall A1",
+            url="https://2026.ieee-icra.org/event/panel-6/",
+            context="Panel session",
+        ),
+        conference_session(
+            id="industry-keynote-1",
+            kind="industry_keynote",
+            title="Industry Keynote Session 1",
+            day="Wednesday",
+            start="09:00",
+            end="10:30",
+            room="Strauss 1-2",
+            url="https://2026.ieee-icra.org/event/industry-keynote-session-1/",
+            context="Industry keynote session",
+            items=[
+                talk("Automating Documentation Artifacts in Safety Critical Processes", "EIT Manufacturing, Dominik Kerschat"),
+                talk("ATRO - The future of robotics is modular", "Beckhoff Automation GmbH, Thomas Morscher-Unger"),
+                talk("Translating Innovation: Closing the Gap in Physical AI Deployment", "Franka Robotics, Sven Parusel"),
+                talk("Amazon's Robotic Manipulation", "Amazon, Aaron Parness"),
+                talk("The road towards a new era of actuators for humanoids", "Infineon Technologies AG, Maurizio Incurvati"),
+                talk("Breaking Boundaries in 3D Perception, Empowering Spatial Intelligence", "Robosense, Xiansheng Yang"),
+                talk("Build a Bridge Between AI Intelligence and the Physical World", "PaXini Tech, Li Jiale"),
+                talk("Towards the AlphaGo and ChatGPT Moments of Embodied AI", "Galbot, He Wang"),
+                talk("What Data Makes Robots Work?", "Encord, Alejandra Gutierrez"),
+                talk("Bridging the Last Millimeter in Contact-Rich Manipulation", "Flexiv Robotics, Shuyun Chung"),
+            ],
+        ),
+        conference_session(
+            id="industry-keynote-2",
+            kind="industry_keynote",
+            title="Industry Keynote Session 2",
+            day="Thursday",
+            start="09:00",
+            end="10:30",
+            room="Strauss 1-2",
+            url="https://2026.ieee-icra.org/event/industry-keynote-session-2/",
+            context="Industry keynote session",
+            items=[
+                talk("TBA", "Technology Innovation Institute, Danilo Caporale"),
+                talk("Foundations for General Physical Intelligence", "TARS, Wenchao Ding"),
+                talk("Gento: Touching the world Gently", "Gento Robotics, Hanwen Kang"),
+                talk("Newton Physics Simulation Engine: A Lightwheel Perspective on Robotics Applications", "Lightwheel, Martin Elbs"),
+                talk("From Pretraining to Learning While Deploying: Building Generalist Robot Policies in the Real World", "AGIBOT, Jianlan Luo"),
+                talk("GPUs for Robotics: Benchmarking LeRobot Policy Training Across GPU Architectures", "NEBIUS, Timothy Le, Mikhail Rozhkov"),
+                talk("Bare Metal to Models: Accelerating embodied AI", "Weights & Biases by CoreWeave, Edmund Kuras"),
+                talk("TBA", "Wiley, Sneha Rhode Gupta"),
+            ],
+        ),
+        conference_session(
+            id="ras-conference-organizers-workshop",
+            kind="ras_event",
+            title="2026 IEEE RAS Conference Organizers Workshop",
+            day="Tuesday",
+            start="10:00",
+            end="11:00",
+            room="",
+            url=RAS_EVENTS_URL,
+            context="RAS event",
+        ),
+        conference_session(
+            id="ras-town-hall",
+            kind="ras_event",
+            title="RAS Town Hall",
+            day="Tuesday",
+            start="18:15",
+            end="19:15",
+            room="",
+            url=RAS_EVENTS_URL,
+            context="RAS event",
+        ),
+        conference_session(
+            id="ras-lunch-with-leaders",
+            kind="ras_event",
+            title="Lunch with Leaders",
+            day="Wednesday",
+            start="12:30",
+            end="14:00",
+            room="",
+            url=RAS_EVENTS_URL,
+            context="RAS event",
+        ),
+        conference_session(
+            id="ras-science-communication-crash-course",
+            kind="ras_event",
+            title="Science Communication Crash Course",
+            day="Wednesday",
+            start="13:00",
+            end="14:00",
+            room="",
+            url=RAS_EVENTS_URL,
+            context="RAS event",
+        ),
+        conference_session(
+            id="ras-awards-lunch",
+            kind="ras_event",
+            title="ICRA 2026 Awards Lunch",
+            day="Thursday",
+            start="12:30",
+            end="14:00",
+            room="Hall A / Exhibition Hall",
+            url=RAS_EVENTS_URL,
+            context="RAS event",
+        ),
+        conference_session(
+            id="ras-community-building-day",
+            kind="ras_event",
+            title="Community Building Day",
+            day="Thursday",
+            start="08:00",
+            end="18:00",
+            room="",
+            url=RAS_EVENTS_URL,
+            context="RAS event",
+        ),
+    ]
+
+    for day in ["Tuesday", "Wednesday", "Thursday"]:
+        day_id = day.lower()
+        sessions.extend(
+            [
+                conference_session(
+                    id=f"ras-tech-talk-stage-{day_id}",
+                    kind="ras_event",
+                    title="Tech Talk Stage",
+                    day=day,
+                    start="09:00",
+                    end="17:00",
+                    room="",
+                    url=RAS_EVENTS_URL,
+                    context="RAS event stage",
+                ),
+                conference_session(
+                    id=f"ras-innovation-stage-{day_id}",
+                    kind="ras_event",
+                    title="Innovation Stage",
+                    day=day,
+                    start="09:00",
+                    end="17:00",
+                    room="",
+                    url=RAS_EVENTS_URL,
+                    context="RAS event stage",
+                ),
+            ]
+        )
+
+    day_order = {"Sunday": 0, "Monday": 1, "Tuesday": 2, "Wednesday": 3, "Thursday": 4, "Friday": 5}
+    sessions.sort(key=lambda x: (day_order.get(x.get("day", ""), 9), minutes_of_day(x.get("start", "")) or 9999, x.get("title", "")))
+    return sessions
+
+
 def build_html(dataset: dict) -> str:
     data_json = json.dumps(dataset, ensure_ascii=False, separators=(",", ":"))
     generated = html.escape(dataset["meta"]["generatedAt"])
@@ -3859,7 +4444,7 @@ def build_html(dataset: dict) -> str:
 :root {{
   --bg:#f7f8fb; --panel:#fff; --fg:#18202a; --muted:#667085; --line:#d8dee8;
   --accent:#126c73; --accent2:#7a4eac; --soft:#eaf6f6; --warn:#a45f00;
-  --paper:#e8f2ff; --workshop:#f0ecff; --presentation:#fff4e2; --slot:#ecf7ef;
+  --paper:#e8f2ff; --workshop:#f0ecff; --presentation:#fff4e2; --slot:#ecf7ef; --session:#e8f7fb;
 }}
 * {{ box-sizing:border-box; }}
 body {{ margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",sans-serif; line-height:1.55; }}
@@ -3893,12 +4478,14 @@ button.secondary {{ background:#fff; color:var(--accent); }}
 .card.workshop {{ border-left:5px solid #7a4eac; }}
 .card.workshop_presentation {{ border-left:5px solid #d3831f; }}
 .card.workshop_slot {{ border-left:5px solid #278553; }}
+.card.conference_session {{ border-left:5px solid #0f7f94; }}
 .topline {{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:6px; }}
 .badge {{ display:inline-flex; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:800; color:#344054; background:#eef2f7; }}
 .badge.paper {{ background:var(--paper); color:#195383; }}
 .badge.workshop {{ background:var(--workshop); color:#57318b; }}
 .badge.workshop_presentation {{ background:var(--presentation); color:#7a4a00; }}
 .badge.workshop_slot {{ background:var(--slot); color:#12613a; }}
+.badge.conference_session {{ background:var(--session); color:#075667; }}
 .title {{ margin:0 0 7px; font-size:16px; line-height:1.35; font-weight:800; overflow-wrap:anywhere; }}
 .subtle {{ color:var(--muted); font-size:13px; overflow-wrap:anywhere; }}
 .snippet {{ margin-top:8px; color:#344054; font-size:13px; }}
@@ -3934,9 +4521,10 @@ summary {{ cursor:pointer; color:var(--accent); font-weight:700; font-size:13px;
 <header>
   <div class="wrap">
     <h1>ICRA 2026 Schedule Explorer</h1>
-    <p class="lead">Enter a day, time range, and comma-separated keywords to search ICRA technical papers together with workshop timetable slots. Matching uses titles, abstracts, keywords, author names, speakers, and nested workshop paper/topic text.</p>
+    <p class="lead">Enter a day, time range, and comma-separated keywords to search ICRA technical papers, conference sessions, and workshop timetable slots. Matching uses titles, abstracts, keywords, author names, speakers, and nested session paper/topic text.</p>
     <div class="meta">
       <span class="chip">Technical papers: <b id="paperCount"></b></span>
+      <span class="chip">Conference sessions: <b id="sessionCount"></b></span>
       <span class="chip">Workshops scanned: <b id="workshopCount"></b></span>
       <span class="chip">Workshop timetable slots: <b id="slotCount"></b></span>
       <span class="chip">Generated: {generated}</span>
@@ -4004,7 +4592,7 @@ summary {{ cursor:pointer; color:var(--accent); font-weight:700; font-size:13px;
 <script id="schedule-data" type="application/json">{data_json}</script>
 <script>
 const DATA = JSON.parse(document.getElementById('schedule-data').textContent);
-const allItems = [...DATA.papers, ...DATA.workshopSlots];
+const allItems = [...DATA.papers, ...(DATA.sessions || []), ...DATA.workshopSlots];
 const dayOrder = {{Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Sunday:0}};
 
 function minutes(t) {{
@@ -4062,7 +4650,7 @@ function escapeHtml(s) {{
 function escapeReg(s) {{ return s.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&'); }}
 function compactText(s) {{ return String(s || '').toLowerCase().replace(/\\W+/g, ''); }}
 function typeLabel(t) {{
-  return t === 'paper' ? 'Technical paper' : 'Workshop timetable slot';
+  return t === 'paper' ? 'Technical paper' : (t === 'workshop_slot' ? 'Workshop timetable slot' : 'Conference session');
 }}
 function itemSort(a,b) {{
   return (dayOrder[a.day] ?? 9) - (dayOrder[b.day] ?? 9)
@@ -4080,7 +4668,7 @@ function render() {{
   rows.sort(itemSort);
   const fullCount = rows.length;
   document.getElementById('matchedTotal').textContent = fullCount;
-  document.getElementById('resultNote').textContent = `${{fullCount}} shown`;
+  document.getElementById('resultNote').textContent = '';
   const groups = new Map();
   for (const item of rows) {{
     const key = `${{item.day || ''}} ${{item.start || ''}}-${{item.end || ''}}`;
@@ -4099,7 +4687,9 @@ function render() {{
     </div>`).join('');
 }}
 function card(item, q) {{
-  return item.type === 'paper' ? paperCard(item, q) : workshopSlotCard(item, q);
+  if (item.type === 'paper') return paperCard(item, q);
+  if (item.type === 'workshop_slot') return workshopSlotCard(item, q);
+  return sessionCard(item, q);
 }}
 function paperCard(item, q) {{
   const loc = [item.day, item.time, item.room].filter(Boolean).join(' · ');
@@ -4130,6 +4720,22 @@ function workshopSlotCard(item, q) {{
     <h3 class="title"><a href="${{escapeHtml(item.url || '#')}}" target="_blank" rel="noreferrer">${{highlightText(item.title, q)}}</a></h3>
     <div class="subtle">${{escapeHtml(sub)}}</div>
     <div class="slotItems">${{(item.items || []).map(x => slotItem(x, q, item)).join('')}}</div>
+  </article>`;
+}}
+function sessionCard(item, q) {{
+  const loc = [item.day, item.time, item.room].filter(Boolean).join(' · ');
+  const sub = [item.context, `${{item.slotItemCount || 1}} items`].filter(Boolean).join(' · ');
+  const details = item.items && item.items.length
+    ? `<div class="slotItems">${{item.items.map(x => slotItem(x, q, item)).join('')}}</div>`
+    : '';
+  return `<article class="card conference_session">
+    <div class="topline">
+      <span class="badge conference_session">${{typeLabel(item.type)}}</span>
+      <span class="subtle">${{escapeHtml(loc)}}</span>
+    </div>
+    <h3 class="title"><a href="${{escapeHtml(item.url || '#')}}" target="_blank" rel="noreferrer">${{highlightText(item.title, q)}}</a></h3>
+    <div class="subtle">${{highlightText(sub, q)}}</div>
+    ${{details}}
   </article>`;
 }}
 function slotItem(x, q, parent) {{
@@ -4165,6 +4771,7 @@ function clearResults() {{
   document.getElementById('results').innerHTML = '<div class="empty">Set filters and click Search.</div>';
 }}
 document.getElementById('paperCount').textContent = DATA.papers.length;
+document.getElementById('sessionCount').textContent = (DATA.sessions || []).length;
 document.getElementById('workshopCount').textContent = DATA.workshops.length;
 document.getElementById('slotCount').textContent = DATA.workshopSlots.length;
 document.getElementById('searchBtn').addEventListener('click', render);
@@ -4210,10 +4817,12 @@ def main() -> None:
     workshop_presentations = make_embedded_presentations(crawled)
     workshop_slots = make_embedded_workshop_slots(crawled, workshop_presentations)
     public_workshops = make_embedded_workshops(crawled)
+    conference_sessions = make_conference_sessions()
     failures = [w for w in crawled if w.get("crawlStatus") != "ok"]
     no_presentations = [w for w in crawled if w.get("crawlStatus") == "ok" and not w.get("presentations")]
     counts = Counter(
         [p["type"] for p in papers]
+        + [s["type"] for s in conference_sessions]
         + [w["type"] for w in public_workshops]
         + [p["type"] for p in workshop_presentations]
         + [s["type"] for s in workshop_slots]
@@ -4226,6 +4835,15 @@ def main() -> None:
                 "githubExplorer": EXPLORER_REPO,
                 "papercept": PAPERCEPT_BASE,
                 "workshops": WORKSHOPS_URL,
+                "programAtGlance": PROGRAM_AT_A_GLANCE_URL,
+                "conferenceSessions": [
+                    KEYNOTE_SESSIONS_URL,
+                    PLENARY_SESSIONS_URL,
+                    KEYNOTE_TUTORIALS_URL,
+                    PANEL_SESSIONS_URL,
+                    INDUSTRY_KEYNOTES_URL,
+                    RAS_EVENTS_URL,
+                ],
                 "rasevents": rasevents,
             },
             "counts": dict(counts),
@@ -4238,10 +4856,12 @@ def main() -> None:
                 f"Linked workshop pages crawled: {len(crawled) - len(failures)}/{len(crawled)} ok; "
                 f"{len(workshop_presentations)} candidate internal talks/posters/papers extracted and grouped into "
                 f"{len(workshop_slots)} workshop timetable slots. "
-                "Search results intentionally include technical papers and workshop timetable slots, not workshop container rows."
+                f"Official conference-session rows added: {len(conference_sessions)}. "
+                "Search results intentionally include technical papers, conference sessions, and workshop timetable slots, not workshop container rows."
             ),
         },
         "papers": papers,
+        "sessions": conference_sessions,
         "workshops": public_workshops,
         "workshopPresentations": workshop_presentations,
         "workshopSlots": workshop_slots,
