@@ -4656,11 +4656,17 @@ function detailText(item, q) {{
 }}
 function highlightText(s, q) {{
   const raw = String(s || '');
-  const lower = raw.toLowerCase();
-  const t = terms(q, 'any').find(x => lower.includes(x));
-  const escaped = escapeHtml(raw);
-  if (!t) return escaped;
-  return escaped.replace(new RegExp(escapeReg(t), 'ig'), m => `<span class="kw">${{m}}</span>`);
+  const tt = [...new Set(terms(q, 'all'))].sort((a, b) => b.length - a.length);
+  if (!tt.length) return escapeHtml(raw);
+  const re = new RegExp(tt.map(escapeReg).join('|'), 'ig');
+  let out = '';
+  let last = 0;
+  for (const match of raw.matchAll(re)) {{
+    out += escapeHtml(raw.slice(last, match.index));
+    out += `<span class="kw">${{escapeHtml(match[0])}}</span>`;
+    last = match.index + match[0].length;
+  }}
+  return out + escapeHtml(raw.slice(last));
 }}
 function escapeHtml(s) {{
   return String(s || '').replace(/[&<>"']/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]));
