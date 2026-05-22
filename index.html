@@ -186,19 +186,7 @@ function matchesKeyword(item, q, mode) {
 }
 function detailText(item, q) {
   const raw = item.abstract || item.searchText || '';
-  const lower = raw.toLowerCase();
-  const t = terms(q, 'any').find(x => lower.includes(x));
-  let s = raw;
-  if (t) {
-    const idx = lower.indexOf(t);
-    s = raw.slice(Math.max(0, idx - 130), idx + 360);
-    s = (idx > 130 ? '...' : '') + s + (idx + 360 < raw.length ? '...' : '');
-  } else {
-    s = raw.slice(0, 360);
-  }
-  const escaped = escapeHtml(s);
-  if (!t) return escaped;
-  return escaped.replace(new RegExp(escapeReg(t), 'ig'), m => `<span class="kw">${m}</span>`);
+  return highlightText(raw, q);
 }
 function highlightText(s, q) {
   const raw = String(s || '');
