@@ -4610,15 +4610,45 @@ function terms(q, mode) {{
   q = q.trim().toLowerCase();
   if (!q) return [];
   if (mode === 'phrase') return [q];
-  const parts = q.includes(',') ? q.split(/[,;]+/) : q.split(/\\s+or\\s+|\\s+/i);
-  return parts.map(x => x.trim()).filter(Boolean);
+  const parts = q.includes(',') ? q.split(/[,;]+/) : q.split(/\\s+(?:or|and)\\s+|\\s+/i);
+  return parts.map(x => x.trim()).filter(x => x && !['and', 'or'].includes(x));
+}}
+function textMatchesTerms(text, tt, mode, q) {{
+  const haystack = String(text || '').toLowerCase();
+  if (!tt.length) return true;
+  if (mode === 'any' || /\\s+or\\s+/i.test(q)) return tt.some(t => haystack.includes(t));
+  return tt.every(t => haystack.includes(t));
+}}
+function nestedText(x) {{
+  return [x.title, x.speaker, x.context, x.abstract, x.paperId].filter(Boolean).join(' ');
+}}
+function parentText(item) {{
+  if (item.type === 'workshop_slot') {{
+    return [item.title, item.workshopTitle, item.category, item.slotKinds, item.room, item.day, item.time].filter(Boolean).join(' ');
+  }}
+  if (item.type === 'conference_session') {{
+    return [item.title, item.kind, item.context, item.room, item.day, item.time].filter(Boolean).join(' ');
+  }}
+  return item.searchText || '';
 }}
 function matchesKeyword(item, q, mode) {{
-  const ts = item.searchText || '';
   const tt = terms(q, mode);
   if (!tt.length) return true;
-  if (mode === 'any' || /\\s+or\\s+/i.test(q)) return tt.some(t => ts.includes(t));
-  return tt.every(t => ts.includes(t));
+  const children = item.items || [];
+  if (!children.length) return textMatchesTerms(item.searchText || '', tt, mode, q);
+  return textMatchesTerms(parentText(item), tt, mode, q)
+    || children.some(x => textMatchesTerms(nestedText(x), tt, mode, q));
+}}
+function visibleNestedItems(item, q, mode) {{
+  const children = item.items || [];
+  const tt = terms(q, mode);
+  if (!tt.length || !children.length || textMatchesTerms(parentText(item), tt, mode, q)) return children;
+  return children.filter(x => textMatchesTerms(nestedText(x), tt, mode, q));
+}}
+function nestedCountLabel(item, shownItems, noun) {{
+  const total = item.slotItemCount || (item.items || []).length || shownItems.length;
+  if (shownItems.length && shownItems.length !== total) return `${{shownItems.length}} of ${{total}} ${{noun}}`;
+  return `${{total}} ${{noun}}`;
 }}
 function detailText(item, q) {{
   const raw = item.abstract || item.searchText || '';
@@ -4671,13 +4701,13 @@ function render() {{
   root.innerHTML = [...groups.entries()].map(([slot, items]) => `
     <div class="group">
       <div class="groupTitle">${{escapeHtml(slot)}} <span class="badge">${{items.length}} items</span></div>
-      ${{items.map(item => card(item, q)).join('')}}
+      ${{items.map(item => card(item, q, mode)).join('')}}
     </div>`).join('');
 }}
-function card(item, q) {{
+function card(item, q, mode) {{
   if (item.type === 'paper') return paperCard(item, q);
-  if (item.type === 'workshop_slot') return workshopSlotCard(item, q);
-  return sessionCard(item, q);
+  if (item.type === 'workshop_slot') return workshopSlotCard(item, q, mode);
+  return sessionCard(item, q, mode);
 }}
 function paperCard(item, q) {{
   const loc = [item.day, item.time, item.room].filter(Boolean).join(' · ');
@@ -4697,9 +4727,10 @@ function paperCard(item, q) {{
     ${{abstract}}
   </article>`;
 }}
-function workshopSlotCard(item, q) {{
+function workshopSlotCard(item, q, mode) {{
   const loc = [item.day, item.time, item.room].filter(Boolean).join(' · ');
-  const sub = [item.workshopTitle, `${{item.slotItemCount || 0}} papers/topics`].filter(Boolean).join(' · ');
+  const shownItems = visibleNestedItems(item, q, mode);
+  const sub = [item.workshopTitle, nestedCountLabel(item, shownItems, 'papers/topics')].filter(Boolean).join(' · ');
   return `<article class="card workshop_slot">
     <div class="topline">
       <span class="badge workshop_slot">${{typeLabel(item.type)}}</span>
@@ -4707,14 +4738,15 @@ function workshopSlotCard(item, q) {{
     </div>
     <h3 class="title"><a href="${{escapeHtml(item.url || '#')}}" target="_blank" rel="noreferrer">${{highlightText(item.title, q)}}</a></h3>
     <div class="subtle">${{escapeHtml(sub)}}</div>
-    <div class="slotItems">${{(item.items || []).map(x => slotItem(x, q, item)).join('')}}</div>
+    <div class="slotItems">${{shownItems.map(x => slotItem(x, q, item)).join('')}}</div>
   </article>`;
 }}
-function sessionCard(item, q) {{
+function sessionCard(item, q, mode) {{
   const loc = [item.day, item.time, item.room].filter(Boolean).join(' · ');
-  const sub = [item.context, `${{item.slotItemCount || 1}} items`].filter(Boolean).join(' · ');
-  const details = item.items && item.items.length
-    ? `<div class="slotItems">${{item.items.map(x => slotItem(x, q, item)).join('')}}</div>`
+  const shownItems = visibleNestedItems(item, q, mode);
+  const sub = [item.context, nestedCountLabel(item, shownItems, 'items')].filter(Boolean).join(' · ');
+  const details = shownItems.length
+    ? `<div class="slotItems">${{shownItems.map(x => slotItem(x, q, item)).join('')}}</div>`
     : '';
   return `<article class="card conference_session">
     <div class="topline">
