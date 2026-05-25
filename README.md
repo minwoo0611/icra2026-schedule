@@ -8,6 +8,14 @@ Static schedule explorer for ICRA 2026 technical papers and workshop timetable s
 - `icra2026_schedule_data.json`: generated schedule data for debugging and reuse.
 - `build_icra2026_explorer.py`: builder script used to regenerate the page and data.
 
+## Visitor Counter
+
+The generated header includes a public hitscounter.dev badge for:
+
+```text
+https://minwoo0611.github.io/icra2026-schedule/
+```
+
 ## Publish
 
 Repository name:

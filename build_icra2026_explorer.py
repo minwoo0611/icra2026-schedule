@@ -43,6 +43,11 @@ KEYNOTE_TUTORIALS_URL = "https://2026.ieee-icra.org/attend/keynote-tutorials/"
 PANEL_SESSIONS_URL = "https://2026.ieee-icra.org/program/panels/"
 INDUSTRY_KEYNOTES_URL = "https://2026.ieee-icra.org/program/industry-keynotes/"
 RAS_EVENTS_URL = "https://2026.ieee-icra.org/ras-events/"
+VISITOR_COUNTER_BADGE_URL = (
+    "https://hitscounter.dev/api/hit?"
+    "url=https%3A%2F%2Fminwoo0611.github.io%2Ficra2026-schedule%2F"
+    "&label=Visitor&icon=github&color=%23126c73"
+)
 
 DAY_TO_PAGE = {
     "Sunday": "ICRA26_ContentListWeb_1.html",
@@ -4434,6 +4439,7 @@ def make_conference_sessions() -> list[dict]:
 def build_html(dataset: dict) -> str:
     data_json = json.dumps(dataset, ensure_ascii=False, separators=(",", ":"))
     generated = html.escape(dataset["meta"]["generatedAt"])
+    visitor_counter_url = html.escape(VISITOR_COUNTER_BADGE_URL, quote=True)
     return f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -4455,6 +4461,8 @@ h1 {{ margin:0 0 10px; font-size:38px; line-height:1.15; letter-spacing:0; overf
 .lead {{ margin:0; max-width:920px; color:var(--muted); font-size:17px; overflow-wrap:anywhere; }}
 .meta {{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }}
 .chip {{ display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:5px 10px; border:1px solid var(--line); border-radius:999px; background:#fff; color:#475467; font-size:12px; overflow-wrap:anywhere; }}
+.visitorChip {{ padding:4px 8px; }}
+.visitorChip img {{ display:block; height:20px; max-width:100%; }}
 .panel {{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; box-shadow:0 1px 2px rgba(16,24,40,.03); }}
 .controls {{ display:grid; grid-template-columns:1.1fr .8fr .7fr .7fr .8fr; gap:12px; align-items:end; margin:22px 0; }}
 .controls > div {{ min-width:0; }}
@@ -4528,6 +4536,7 @@ summary {{ cursor:pointer; color:var(--accent); font-weight:700; font-size:13px;
       <span class="chip">Workshops scanned: <b id="workshopCount"></b></span>
       <span class="chip">Workshop timetable slots: <b id="slotCount"></b></span>
       <span class="chip">Generated: {generated}</span>
+      <span class="chip visitorChip"><img src="{visitor_counter_url}" alt="Visitor count" loading="lazy"></span>
     </div>
   </div>
 </header>
