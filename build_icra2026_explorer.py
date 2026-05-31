@@ -4471,7 +4471,7 @@ h1 {{ margin:0 0 10px; font-size:38px; line-height:1.15; letter-spacing:0; overf
 .visitorChip {{ padding:4px 8px; }}
 .visitorChip img {{ display:block; height:20px; max-width:100%; }}
 .panel {{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; box-shadow:0 1px 2px rgba(16,24,40,.03); }}
-.controls {{ display:grid; grid-template-columns:1.1fr .8fr .7fr .7fr .8fr; gap:12px; align-items:end; margin:22px 0; }}
+.controls {{ display:grid; grid-template-columns:1.1fr 1.1fr .75fr .65fr .65fr .7fr; gap:12px; align-items:end; margin:22px 0; }}
 .controls > div {{ min-width:0; }}
 .secondaryControls {{ grid-template-columns:1.1fr .6fr; margin:0; }}
 label {{ display:block; font-size:12px; color:var(--muted); font-weight:700; margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }}
@@ -4552,8 +4552,12 @@ summary {{ cursor:pointer; color:var(--accent); font-weight:700; font-size:13px;
   <section class="panel">
     <div class="controls">
       <div>
-        <label for="q">Keywords</label>
+        <label for="q">Include keywords</label>
         <input id="q" placeholder="Comma-separated keywords" value="">
+      </div>
+      <div>
+        <label for="excludeQ">Exclude keywords</label>
+        <input id="excludeQ" placeholder="Hide matching keywords" value="">
       </div>
       <div>
         <label for="day">Day</label>
@@ -4655,11 +4659,25 @@ function matchesKeyword(item, q, mode) {{
   return textMatchesTerms(parentText(item), tt, mode, q)
     || children.some(x => textMatchesTerms(nestedText(x), tt, mode, q));
 }}
-function visibleNestedItems(item, q, mode) {{
+function textHasExcludedTerm(text, excludeQ) {{
+  const excluded = terms(excludeQ, 'all');
+  return excluded.length > 0 && textMatchesTerms(text, excluded, 'any', excludeQ);
+}}
+function itemParentExcluded(item, excludeQ) {{
+  const children = item.items || [];
+  return textHasExcludedTerm(children.length ? parentText(item) : (item.searchText || ''), excludeQ);
+}}
+function visibleNestedItems(item, q, mode, excludeQ) {{
   const children = item.items || [];
   const tt = terms(q, mode);
-  if (!tt.length || !children.length || textMatchesTerms(parentText(item), tt, mode, q)) return children;
-  return children.filter(x => textMatchesTerms(nestedText(x), tt, mode, q));
+  const allowedChildren = children.filter(x => !textHasExcludedTerm(nestedText(x), excludeQ));
+  if (!tt.length || !children.length || textMatchesTerms(parentText(item), tt, mode, q)) return allowedChildren;
+  return allowedChildren.filter(x => textMatchesTerms(nestedText(x), tt, mode, q));
+}}
+function passesExclude(item, q, mode, excludeQ) {{
+  if (itemParentExcluded(item, excludeQ)) return false;
+  const children = item.items || [];
+  return !children.length || visibleNestedItems(item, q, mode, excludeQ).length > 0;
 }}
 function nestedCountLabel(item, shownItems, noun) {{
   const total = item.slotItemCount || (item.items || []).length || shownItems.length;
@@ -4700,11 +4718,12 @@ function itemSort(a,b) {{
 }}
 function render() {{
   const q = document.getElementById('q').value;
+  const excludeQ = document.getElementById('excludeQ').value;
   const day = document.getElementById('day').value;
   const start = document.getElementById('start').value || '00:00';
   const end = document.getElementById('end').value || '24:00';
   const mode = document.getElementById('mode').value;
-  let rows = allItems.filter(item => (!day || item.day === day) && overlaps(item, start, end) && matchesKeyword(item, q, mode));
+  let rows = allItems.filter(item => (!day || item.day === day) && overlaps(item, start, end) && matchesKeyword(item, q, mode) && passesExclude(item, q, mode, excludeQ));
   rows.sort(itemSort);
   const fullCount = rows.length;
   document.getElementById('matchedTotal').textContent = fullCount;
@@ -4723,13 +4742,13 @@ function render() {{
   root.innerHTML = [...groups.entries()].map(([slot, items]) => `
     <div class="group">
       <div class="groupTitle">${{escapeHtml(slot)}} <span class="badge">${{items.length}} items</span></div>
-      ${{items.map(item => card(item, q, mode)).join('')}}
+      ${{items.map(item => card(item, q, mode, excludeQ)).join('')}}
     </div>`).join('');
 }}
-function card(item, q, mode) {{
+function card(item, q, mode, excludeQ) {{
   if (item.type === 'paper') return paperCard(item, q);
-  if (item.type === 'workshop_slot') return workshopSlotCard(item, q, mode);
-  return sessionCard(item, q, mode);
+  if (item.type === 'workshop_slot') return workshopSlotCard(item, q, mode, excludeQ);
+  return sessionCard(item, q, mode, excludeQ);
 }}
 function paperCard(item, q) {{
   const loc = [item.day, item.time, item.room].filter(Boolean).join(' · ');
@@ -4749,9 +4768,9 @@ function paperCard(item, q) {{
     ${{abstract}}
   </article>`;
 }}
-function workshopSlotCard(item, q, mode) {{
+function workshopSlotCard(item, q, mode, excludeQ) {{
   const loc = [item.day, item.time, item.room].filter(Boolean).join(' · ');
-  const shownItems = visibleNestedItems(item, q, mode);
+  const shownItems = visibleNestedItems(item, q, mode, excludeQ);
   const sub = [item.workshopTitle, nestedCountLabel(item, shownItems, 'papers/topics')].filter(Boolean).join(' · ');
   return `<article class="card workshop_slot">
     <div class="topline">
@@ -4763,9 +4782,9 @@ function workshopSlotCard(item, q, mode) {{
     <div class="slotItems">${{shownItems.map(x => slotItem(x, q, item)).join('')}}</div>
   </article>`;
 }}
-function sessionCard(item, q, mode) {{
+function sessionCard(item, q, mode, excludeQ) {{
   const loc = [item.day, item.time, item.room].filter(Boolean).join(' · ');
-  const shownItems = visibleNestedItems(item, q, mode);
+  const shownItems = visibleNestedItems(item, q, mode, excludeQ);
   const sub = [item.context, nestedCountLabel(item, shownItems, 'items')].filter(Boolean).join(' · ');
   const details = shownItems.length
     ? `<div class="slotItems">${{shownItems.map(x => slotItem(x, q, item)).join('')}}</div>`
@@ -4819,6 +4838,7 @@ document.getElementById('slotCount').textContent = DATA.workshopSlots.length;
 document.getElementById('searchBtn').addEventListener('click', render);
 document.getElementById('resetBtn').addEventListener('click', () => {{
   document.getElementById('q').value = '';
+  document.getElementById('excludeQ').value = '';
   document.getElementById('day').value = '';
   document.getElementById('start').value = '00:00';
   document.getElementById('end').value = '24:00';
