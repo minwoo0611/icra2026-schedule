@@ -7,7 +7,7 @@ Sources:
 - Linked workshop pages, plus a small number of likely program/schedule/accepted-paper
   subpages, for workshop internal talk/poster/paper text.
 
-The generated index.html is self-contained so it works from file://.
+The generated index.html embeds schedule data and references local static assets.
 """
 from __future__ import annotations
 
@@ -43,6 +43,9 @@ KEYNOTE_TUTORIALS_URL = "https://2026.ieee-icra.org/attend/keynote-tutorials/"
 PANEL_SESSIONS_URL = "https://2026.ieee-icra.org/program/panels/"
 INDUSTRY_KEYNOTES_URL = "https://2026.ieee-icra.org/program/industry-keynotes/"
 RAS_EVENTS_URL = "https://2026.ieee-icra.org/ras-events/"
+FLOORPLAN_PAGE_URL = "https://2026.ieee-icra.org/partners/conference-floorplan/"
+FLOORPLAN_IMAGE_PATH = "assets/icra2026-floorplan.png"
+FLOORPLAN_PDF_PATH = "assets/icra2026-floorplan.pdf"
 VISITOR_COUNTER_BADGE_URL = (
     "https://hitscounter.dev/api/hit?"
     "url=https%3A%2F%2Fminwoo0611.github.io%2Ficra2026-schedule%2F"
@@ -4446,6 +4449,9 @@ def make_conference_sessions() -> list[dict]:
 def build_html(dataset: dict) -> str:
     data_json = json.dumps(dataset, ensure_ascii=False, separators=(",", ":"))
     generated = html.escape(dataset["meta"]["generatedAt"])
+    floorplan_page_url = html.escape(FLOORPLAN_PAGE_URL, quote=True)
+    floorplan_image_path = html.escape(FLOORPLAN_IMAGE_PATH, quote=True)
+    floorplan_pdf_path = html.escape(FLOORPLAN_PDF_PATH, quote=True)
     visitor_counter_url = html.escape(VISITOR_COUNTER_BADGE_URL, quote=True)
     return f"""<!doctype html>
 <html lang="ko">
@@ -4486,6 +4492,12 @@ button.secondary {{ background:#fff; color:var(--accent); }}
 .stat b {{ font-variant-numeric:tabular-nums; }}
 .resultsHead {{ display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:12px; }}
 .resultsHead h2 {{ margin:0; font-size:22px; }}
+.floorplanPanel {{ margin-top:18px; }}
+.floorplanHead {{ display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }}
+.floorplanHead h2 {{ margin:0; font-size:22px; }}
+.floorplanActions {{ display:flex; gap:10px; flex-wrap:wrap; }}
+.floorplanImageWrap {{ overflow:auto; border:1px solid var(--line); border-radius:10px; background:#fff; }}
+.floorplanImage {{ display:block; width:100%; min-width:760px; height:auto; }}
 .group {{ margin-bottom:18px; }}
 .groupTitle {{ display:flex; align-items:center; gap:10px; margin:0 0 8px; color:#344054; font-size:15px; font-weight:800; }}
 .card {{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 15px; margin-bottom:10px; }}
@@ -4592,6 +4604,21 @@ summary {{ cursor:pointer; color:var(--accent); font-weight:700; font-size:13px;
         <label>&nbsp;</label>
         <button class="secondary" id="resetBtn">Reset</button>
       </div>
+    </div>
+  </section>
+
+  <section class="panel floorplanPanel" id="floorplan">
+    <div class="floorplanHead">
+      <h2>Conference Floorplan</h2>
+      <div class="floorplanActions">
+        <a class="chip" href="{floorplan_pdf_path}" target="_blank" rel="noreferrer">Open PDF</a>
+        <a class="chip" href="{floorplan_page_url}" target="_blank" rel="noreferrer">Official page</a>
+      </div>
+    </div>
+    <div class="floorplanImageWrap">
+      <a href="{floorplan_pdf_path}" target="_blank" rel="noreferrer">
+        <img class="floorplanImage" src="{floorplan_image_path}" alt="ICRA 2026 conference venue floorplan" loading="lazy">
+      </a>
     </div>
   </section>
 

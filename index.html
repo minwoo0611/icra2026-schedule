@@ -37,6 +37,12 @@ button.secondary { background:#fff; color:var(--accent); }
 .stat b { font-variant-numeric:tabular-nums; }
 .resultsHead { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:12px; }
 .resultsHead h2 { margin:0; font-size:22px; }
+.floorplanPanel { margin-top:18px; }
+.floorplanHead { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+.floorplanHead h2 { margin:0; font-size:22px; }
+.floorplanActions { display:flex; gap:10px; flex-wrap:wrap; }
+.floorplanImageWrap { overflow:auto; border:1px solid var(--line); border-radius:10px; background:#fff; }
+.floorplanImage { display:block; width:100%; min-width:760px; height:auto; }
 .group { margin-bottom:18px; }
 .groupTitle { display:flex; align-items:center; gap:10px; margin:0 0 8px; color:#344054; font-size:15px; font-weight:800; }
 .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 15px; margin-bottom:10px; }
@@ -143,6 +149,21 @@ summary { cursor:pointer; color:var(--accent); font-weight:700; font-size:13px; 
         <label>&nbsp;</label>
         <button class="secondary" id="resetBtn">Reset</button>
       </div>
+    </div>
+  </section>
+
+  <section class="panel floorplanPanel" id="floorplan">
+    <div class="floorplanHead">
+      <h2>Conference Floorplan</h2>
+      <div class="floorplanActions">
+        <a class="chip" href="assets/icra2026-floorplan.pdf" target="_blank" rel="noreferrer">Open PDF</a>
+        <a class="chip" href="https://2026.ieee-icra.org/partners/conference-floorplan/" target="_blank" rel="noreferrer">Official page</a>
+      </div>
+    </div>
+    <div class="floorplanImageWrap">
+      <a href="assets/icra2026-floorplan.pdf" target="_blank" rel="noreferrer">
+        <img class="floorplanImage" src="assets/icra2026-floorplan.png" alt="ICRA 2026 conference venue floorplan" loading="lazy">
+      </a>
     </div>
   </section>
 
