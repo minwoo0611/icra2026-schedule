@@ -11,7 +11,10 @@ The generated index.html embeds schedule data and references local static assets
 """
 from __future__ import annotations
 
+import ast
+import csv
 import html
+import io
 import json
 import re
 import subprocess
@@ -128,7 +131,15 @@ def fetch(url: str, *, timeout: int = 18) -> tuple[int | None, str, str]:
     try:
         r = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
         ctype = r.headers.get("content-type", "")
-        if "text" not in ctype and "html" not in ctype and "xml" not in ctype and not r.text.strip().startswith("<"):
+        if (
+            "text" not in ctype
+            and "html" not in ctype
+            and "xml" not in ctype
+            and "javascript" not in ctype
+            and "json" not in ctype
+            and "csv" not in ctype
+            and not r.text.strip().startswith("<")
+        ):
             return r.status_code, r.url, ""
         r.encoding = r.encoding or "utf-8"
         return r.status_code, r.url, r.text
@@ -1673,6 +1684,8 @@ def curated_row(
     context: str = "",
     url: str = "",
     paper_id: str = "",
+    abstract: str = "",
+    bio: str = "",
 ) -> dict:
     row = {
         "kind": kind,
@@ -1686,6 +1699,10 @@ def curated_row(
     }
     if paper_id:
         row["paperId"] = paper_id
+    if abstract:
+        row["abstract"] = abstract
+    if bio:
+        row["bio"] = bio
     return row
 
 
@@ -1905,8 +1922,10 @@ MON_WS_17_URL = "https://dex-manipulation.github.io/icra2026/"
 MON_WS_18_URL = "https://sites.google.com/view/embodied-ai-icra-26/"
 MON_WS_19_URL = "https://sites.google.com/view/icra-2026-s2s-perception/"
 MON_WS_20_URL = "https://awesomedigitaltwin.github.io/2026_ICRA.html"
+MON_WS_20_ACCEPTED_PAPERS_URL = urljoin(MON_WS_20_URL, "static/26_ICRA/papers.csv")
 MON_WS_21_URL = "https://www.ellipsis-venture.com/icra2026/"
 MON_WS_23_URL = "https://xingxingzuo.github.io/MM-SpatialAI/"
+MON_WS_23_CONFIG_URL = urljoin(MON_WS_23_URL, "assets/js/config.js?v=20260530a")
 MON_WS_24_URL = "http://www.mananlab.tech/workshop"
 MON_WS_26_URL = "https://icra2026rm.github.io/schedule"
 MON_WS_27_URL = "https://icra2026-rigorous-perception.github.io/"
@@ -1947,6 +1966,295 @@ MON_WS_23_POSTER_2 = [
     ("", "UniFField: A Generalizable Unified Neural Feature Field for Visual, Semantic, and Spatial Uncertainties in Any Scene", ""),
     ("", "Metric-Semantic Primitive Matching for Cross-View Robot Localization Beyond Urban Environments", ""),
 ]
+
+
+def load_digital_twin_presentations() -> list[dict] | None:
+    status, _, page_text = fetch(MON_WS_20_URL)
+    if status is None or status >= 400 or not page_text:
+        return None
+
+    rows: list[dict] = []
+    soup = BeautifulSoup(page_text, "html.parser")
+    timed_entries: list[dict] = []
+    for tr in soup.select("tr"):
+        time_cell = tr.select_one(".schedule-time-cell")
+        info_cell = tr.select_one(".schedule-info-cell")
+        if not time_cell or not info_cell:
+            continue
+        start = parse_single_clock(time_cell.get_text(" ", strip=True))
+        if not start:
+            continue
+        text = normalize_text(info_cell.get_text(" ", strip=True))
+        timed_entries.append({"start": start, "text": text, "info": info_cell})
+
+    for idx, entry in enumerate(timed_entries):
+        text = entry["text"]
+        end = timed_entries[idx + 1]["start"] if idx + 1 < len(timed_entries) else add_minutes(entry["start"], 30)
+        if "Keynote:" not in text:
+            if "Discussion" in text:
+                rows.append(
+                    curated_row(
+                        "panel",
+                        "Discussion",
+                        entry["start"],
+                        end,
+                        speaker="Hengshuang Zhao, Steve Xie, Ajay Mandlekar, Jiajun Wu, Manolis Savva, Ingmar Posner, Ken Goldberg, Oier Mees",
+                        url=MON_WS_20_URL,
+                    )
+                )
+            continue
+
+        speaker = ""
+        first_bold = entry["info"].find("b")
+        if first_bold:
+            speaker = re.sub(r"^Keynote:\s*", "", normalize_text(first_bold.get_text(" ", strip=True)), flags=re.I)
+        affiliation_tag = entry["info"].find("i")
+        affiliation = normalize_text(affiliation_tag.get_text(" ", strip=True)) if affiliation_tag else ""
+        if affiliation and affiliation.lower() not in speaker.lower():
+            speaker = f"{speaker} ({affiliation})" if speaker else affiliation
+        title_match = re.search(r"\bTitle:\s*(.*?)\s*Abstract\s*\(click to expand\)", text, re.I)
+        abstract_match = re.search(r"Abstract\s*\(click to expand\)\s*(.*)$", text, re.I)
+        title = normalize_text(title_match.group(1)) if title_match else "Keynote"
+        abstract = normalize_text(abstract_match.group(1)) if abstract_match else ""
+        if title.lower() == "blank":
+            title = "Keynote"
+        if abstract.lower() == "blank":
+            abstract = ""
+        rows.append(curated_row("talk", title, entry["start"], end, speaker=speaker, context="Keynote", url=MON_WS_20_URL, abstract=abstract))
+
+    status, _, csv_text = fetch(MON_WS_20_ACCEPTED_PAPERS_URL)
+    if status is not None and status < 400 and csv_text:
+        for paper in csv.DictReader(io.StringIO(csv_text)):
+            title = normalize_text(paper.get("title", ""))
+            if not title:
+                continue
+            forum_id = normalize_text(paper.get("forum_id", ""))
+            paper_url = f"https://openreview.net/forum?id={forum_id}" if forum_id else MON_WS_20_URL
+            is_spotlight = normalize_text(paper.get("spotlight", "")).lower() == "true"
+            if is_spotlight:
+                rows.append(
+                    curated_row(
+                        "spotlight",
+                        title,
+                        "12:00",
+                        "12:30",
+                        speaker=normalize_text(paper.get("authors", "")),
+                        context="Spotlight talks",
+                        url=paper_url,
+                        paper_id=normalize_text(paper.get("paper_number", "")),
+                        abstract=normalize_text(paper.get("abstract", "")),
+                    )
+                )
+            rows.append(
+                curated_row(
+                    "poster",
+                    title,
+                    "12:30",
+                    "14:00",
+                    speaker=normalize_text(paper.get("authors", "")),
+                    context="Lunch & Poster session",
+                    url=paper_url,
+                    paper_id=normalize_text(paper.get("paper_number", "")),
+                    abstract=normalize_text(paper.get("abstract", "")),
+                )
+            )
+    return rows or None
+
+
+def extract_js_assigned_value(script_text: str, name: str) -> str:
+    marker = re.search(rf"\b(?:const|let|var)\s+{re.escape(name)}\s*=", script_text)
+    if not marker:
+        return ""
+    idx = marker.end()
+    while idx < len(script_text) and script_text[idx].isspace():
+        idx += 1
+    if idx >= len(script_text) or script_text[idx] not in "[{":
+        return ""
+    opening = script_text[idx]
+    closing = "]" if opening == "[" else "}"
+    depth = 0
+    quote = ""
+    escaped = False
+    for pos in range(idx, len(script_text)):
+        ch = script_text[pos]
+        if quote:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == quote:
+                quote = ""
+            continue
+        if ch in "\"'`":
+            quote = ch
+            continue
+        if ch == opening:
+            depth += 1
+        elif ch == closing:
+            depth -= 1
+            if depth == 0:
+                return script_text[idx : pos + 1]
+    return ""
+
+
+def strip_js_comments(script_text: str) -> str:
+    out: list[str] = []
+    quote = ""
+    escaped = False
+    i = 0
+    while i < len(script_text):
+        ch = script_text[i]
+        nxt = script_text[i + 1] if i + 1 < len(script_text) else ""
+        if quote:
+            out.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == quote:
+                quote = ""
+            i += 1
+            continue
+        if ch in "\"'`":
+            quote = ch
+            out.append(ch)
+            i += 1
+            continue
+        if ch == "/" and nxt == "/":
+            i += 2
+            while i < len(script_text) and script_text[i] not in "\r\n":
+                i += 1
+            continue
+        if ch == "/" and nxt == "*":
+            i += 2
+            while i + 1 < len(script_text) and script_text[i : i + 2] != "*/":
+                i += 1
+            i += 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def js_literal_value(script_text: str, name: str):
+    value = extract_js_assigned_value(script_text, name)
+    if not value:
+        return None
+    value = strip_js_comments(value)
+    value = re.sub(r",\s*([}\]])", r"\1", value)
+    return ast.literal_eval(value)
+
+
+def parse_js_time_range(time_text: str) -> tuple[str, str]:
+    match = TIME_RE.search(time_text or "")
+    if not match:
+        return "", ""
+    return match.group("s").replace(".", ":"), match.group("e").replace(".", ":")
+
+
+def mm_spatialai_presentations_from_config(config_text: str) -> list[dict]:
+    talk_details = js_literal_value(config_text, "talk_speaker_details") or {}
+    schedule = js_literal_value(config_text, "schedule") or []
+    contributed = js_literal_value(config_text, "contributed_paper_sessions") or {}
+    posters = js_literal_value(config_text, "coffee_poster_sessions") or {}
+    accepted = js_literal_value(config_text, "accepted_presentations") or []
+    sponsors = js_literal_value(config_text, "sponsor_introductions") or []
+
+    accepted_by_title = {}
+    for row in accepted:
+        if len(row) >= 7:
+            accepted_by_title[normalize_text(row[5])] = {
+                "speaker": normalize_text(f"{row[0]}, {row[4]}"),
+                "abstract": normalize_text(row[6]),
+                "url": row[1],
+            }
+
+    rows: list[dict] = []
+    invited_count = 0
+    for entry in schedule:
+        if len(entry) < 3:
+            continue
+        kind, time_text, label = entry[:3]
+        start, end = parse_js_time_range(time_text)
+        if not start or not end:
+            continue
+        alias = entry[3] if len(entry) > 3 else ""
+
+        if kind == "inv-talk":
+            invited_count += 1
+            details = talk_details.get(alias, [])
+            if len(details) < 7:
+                rows.append(curated_row("talk", label, start, end, context=f"Invited Talk {invited_count}", url=MON_WS_23_URL))
+                continue
+            speaker_parts = [normalize_text(details[0]), normalize_text(details[3] if len(details) > 3 else "")]
+            rows.append(
+                curated_row(
+                    "talk",
+                    normalize_text(details[5]) or f"Invited Talk {invited_count}",
+                    start,
+                    end,
+                    speaker=", ".join([part for part in speaker_parts if part]),
+                    context=f"Invited Talk {invited_count}",
+                    url=details[4] or MON_WS_23_URL,
+                    abstract=normalize_text(details[6] if len(details) > 6 else ""),
+                    bio=normalize_text(details[7] if len(details) > 7 else ""),
+                )
+            )
+        elif kind == "spot-ppt":
+            for paper_time, title, paper_url in contributed.get(alias, []):
+                paper_start, paper_end = parse_js_time_range(paper_time)
+                meta = accepted_by_title.get(normalize_text(title), {})
+                rows.append(
+                    curated_row(
+                        "spotlight",
+                        normalize_text(title),
+                        paper_start or start,
+                        paper_end or end,
+                        speaker=meta.get("speaker", ""),
+                        context=normalize_text(label),
+                        url=urljoin(MON_WS_23_URL, paper_url) if paper_url else MON_WS_23_URL,
+                        abstract=meta.get("abstract", ""),
+                    )
+                )
+        elif kind == "coffee-break" and alias in posters:
+            for poster in posters.get(alias, []):
+                if not poster:
+                    continue
+                title = poster[0] if isinstance(poster, list) else poster
+                paper_url = poster[1] if isinstance(poster, list) and len(poster) > 1 else ""
+                meta = accepted_by_title.get(normalize_text(title), {})
+                rows.append(
+                    curated_row(
+                        "poster",
+                        normalize_text(title),
+                        start,
+                        end,
+                        speaker=meta.get("speaker", ""),
+                        context=BeautifulSoup(label, "html.parser").get_text(" ", strip=True),
+                        url=urljoin(MON_WS_23_URL, paper_url) if paper_url else MON_WS_23_URL,
+                        abstract=meta.get("abstract", ""),
+                    )
+                )
+        elif kind == "sponsors":
+            sponsor_names = [normalize_text(row[2]) for row in sponsors if len(row) >= 3]
+            rows.append(curated_row("talk", "Sponsor Introductions", start, end, speaker=", ".join(sponsor_names), context="4 x 5 min", url=MON_WS_23_URL))
+        elif kind == "panel":
+            rows.append(curated_row("panel", normalize_text(label), start, end, url=MON_WS_23_URL))
+        elif kind == "award":
+            rows.append(curated_row("talk", normalize_text(label), start, end, url=MON_WS_23_URL))
+    return rows
+
+
+def load_mm_spatialai_presentations() -> list[dict] | None:
+    status, _, text = fetch(MON_WS_23_CONFIG_URL)
+    if status is None or status >= 400 or not text:
+        return None
+    try:
+        rows = mm_spatialai_presentations_from_config(text)
+    except Exception as exc:
+        log(f"MM-SpatialAI config parse failed: {exc}")
+        return None
+    return rows or None
 
 MON_WS_27_NAV_POSTERS = [
     ("", "Perception Debt: Monitoring Safety-Margin Consumption in Embodied Autonomy", "Stavan Dholakia, Abhishek Singh, Aditya Gazta, Shivani Shukla"),
@@ -3304,6 +3612,14 @@ CURATED_WORKSHOP_PRESENTATIONS = {
 
 
 def curated_presentations_for_workshop(workshop: dict) -> list[dict] | None:
+    if workshop.get("id", "") == "mon-ws-20":
+        rows = load_digital_twin_presentations()
+        if rows is not None:
+            return rows
+    if workshop.get("id", "") == "mon-ws-23":
+        rows = load_mm_spatialai_presentations()
+        if rows is not None:
+            return rows
     rows = CURATED_WORKSHOP_PRESENTATIONS.get(workshop.get("id", ""))
     if rows is None:
         return None
@@ -3527,44 +3843,46 @@ def make_embedded_presentations(workshops: list[dict]) -> list[dict]:
             if PDF_FILE_RE.search(paper_id):
                 paper_id = ""
             clean_context = clean_item_context(p)
-            rows.append(
-                {
-                    "type": "workshop_presentation",
-                    "source": "Workshop linked page crawl",
-                    "id": f"{ws['id']}-p{i:02d}",
-                    "workshopId": ws["id"],
-                    "workshopTitle": ws["title"],
-                    "category": ws["category"],
-                    "kind": kind,
-                    "day": ws["day"],
-                    "start": start,
-                    "end": end,
-                    "time": f"{start}-{end}",
-                    "internalTime": p.get("time", ""),
-                    "room": ws["room"],
-                    "title": p.get("title", ""),
-                    "speaker": p.get("speaker", ""),
-                    "paperId": paper_id,
-                    "abstract": p.get("abstract", ""),
-                    "context": clean_context,
-                    "url": p.get("url") or ws.get("url", ""),
-                    "searchText": normalize_text(
-                        " ".join(
-                            [
-                                p.get("title", ""),
-                                p.get("abstract", ""),
-                                p.get("speaker", ""),
-                                clean_context,
-                                p.get("paperId", ""),
-                                ws["title"],
-                            ]
-                        )
-                    ).lower(),
-                    "displayText": normalize_text(
-                        " ".join([p.get("title", ""), p.get("speaker", ""), clean_context, ws["title"]])
-                    ).lower(),
-                }
-            )
+            row = {
+                "type": "workshop_presentation",
+                "source": "Workshop linked page crawl",
+                "id": f"{ws['id']}-p{i:02d}",
+                "workshopId": ws["id"],
+                "workshopTitle": ws["title"],
+                "category": ws["category"],
+                "kind": kind,
+                "day": ws["day"],
+                "start": start,
+                "end": end,
+                "time": f"{start}-{end}",
+                "internalTime": p.get("time", ""),
+                "room": ws["room"],
+                "title": p.get("title", ""),
+                "speaker": p.get("speaker", ""),
+                "paperId": paper_id,
+                "abstract": p.get("abstract", ""),
+                "context": clean_context,
+                "url": p.get("url") or ws.get("url", ""),
+                "searchText": normalize_text(
+                    " ".join(
+                        [
+                            p.get("title", ""),
+                            p.get("abstract", ""),
+                            p.get("bio", ""),
+                            p.get("speaker", ""),
+                            clean_context,
+                            p.get("paperId", ""),
+                            ws["title"],
+                        ]
+                    )
+                ).lower(),
+                "displayText": normalize_text(
+                    " ".join([p.get("title", ""), p.get("speaker", ""), p.get("bio", ""), clean_context, ws["title"]])
+                ).lower(),
+            }
+            if p.get("bio"):
+                row["bio"] = p.get("bio", "")
+            rows.append(row)
     return rows
 
 
@@ -3779,8 +4097,9 @@ def make_embedded_workshop_slots(workshops: list[dict], presentation_rows: list[
         label_items = [item for item in items if is_slot_label_item(item, items)]
         display_items = [item for item in items if item not in label_items] or items
         title = slot_title_for_group(display_items, label_items)
-        nested = [
-            {
+        nested = []
+        for item in display_items:
+            nested_item = {
                 "kind": item.get("kind", ""),
                 "title": item.get("title", ""),
                 "speaker": item.get("speaker", ""),
@@ -3789,8 +4108,9 @@ def make_embedded_workshop_slots(workshops: list[dict], presentation_rows: list[
                 "url": item.get("url", ""),
                 "paperId": item.get("paperId", ""),
             }
-            for item in display_items
-        ]
+            if item.get("bio"):
+                nested_item["bio"] = item.get("bio", "")
+            nested.append(nested_item)
         kind_counts = Counter(item.get("kind", "") for item in display_items if item.get("kind"))
         kind_label = ", ".join(f"{kind} x{count}" if count > 1 else kind for kind, count in sorted(kind_counts.items()))
         search_text = normalize_text(
@@ -3808,6 +4128,7 @@ def make_embedded_workshop_slots(workshops: list[dict], presentation_rows: list[
                                 item.get("speaker", ""),
                                 item.get("context", ""),
                                 item.get("abstract", ""),
+                                item.get("bio", ""),
                                 item.get("paperId", ""),
                             ]
                         )
@@ -4667,7 +4988,7 @@ function textMatchesTerms(text, tt, mode, q) {{
   return tt.every(t => haystack.includes(t));
 }}
 function nestedText(x) {{
-  return [x.title, x.speaker, x.context, x.abstract, x.paperId].filter(Boolean).join(' ');
+  return [x.title, x.speaker, x.context, x.abstract, x.bio, x.paperId].filter(Boolean).join(' ');
 }}
 function parentText(item) {{
   if (item.type === 'workshop_slot') {{
@@ -4845,12 +5166,16 @@ function slotItem(x, q, parent) {{
   const abstract = x.abstract
     ? `<details><summary>Abstract</summary><div class="detailBody">${{highlightText(x.abstract, q)}}</div></details>`
     : '';
+  const bio = x.bio
+    ? `<details><summary>Bio</summary><div class="detailBody">${{highlightText(x.bio, q)}}</div></details>`
+    : '';
   const titleHtml = repeatedTitle ? '' : `<div class="slotItemTitle"><a href="${{escapeHtml(x.url || '#')}}" target="_blank" rel="noreferrer">${{highlightText(x.title, q)}}</a></div>`;
   const metaHtml = meta ? `<div class="slotMeta">${{highlightText(meta, q)}}</div>` : '';
   return `<div class="slotItem">
     ${{titleHtml}}
     ${{metaHtml}}
     ${{abstract}}
+    ${{bio}}
   </div>`;
 }}
 function clearResults() {{
